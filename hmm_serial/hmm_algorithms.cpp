@@ -48,28 +48,30 @@ void print_int_vector(vector<int> vec)
     cout << "\n";
 }
 
-vector<vector<double> > forward(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<int> &observations, int stop)
+vector<vector<double> > forward(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<int> &observations, vector<double> &pi, int stop)
 {
-    int numCols = stop + 1; //observations.size() + 1;
+    int numCols = stop; //observations.size() + 1;
     int numRows = transition.size();
     int row, col, p;
     double stateProb, result;
 
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
 
-
-    resultMatrix[0][0] = 1.0;
+    // initialization
+    for (row = 0; row < numRows; row++){
+        resultMatrix[row][0] = pi[row]*emission[row][observations[0]];
+    }
 
     for (col = 1; col < numCols; col++)
     {
-        for (row = 1; row < numRows; row++)
+        for (row = 0; row < numRows; row++)
         {
+            stateProb = 0;
             for (p = 0; p < numRows; p++)
             {
-                stateProb += transition[p][row]*resultMatrix[p][col-1];
+                stateProb = transition[p][row]*resultMatrix[p][col-1]*emission[row][observations[col]];
+                resultMatrix[row][col] += stateProb;
             }
-            resultMatrix[row][col] = stateProb*emission[row-1][observations[col-1]];
-            stateProb = 0;
         }
     }
 
@@ -78,33 +80,44 @@ vector<vector<double> > forward(vector<vector<double> > &transition, vector<vect
 }
 
 
-void backward(vector<vector<double> > transition, vector<vector<double> > emission,  vector<int> observations, int stop)
+void backward(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<int> &observations, vector<double> &pi, int stop)
 {
-    int numCols = observations.size() + 1 - stop;
+    int numCols = observations.size() - stop + 1;
     int numRows = transition.size();
     int row, col, p;
     double stateProb, result;
 
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
     
-
-    for (row = 1; row < numRows; row++)
+    // initial probabilities
+    for (row = 0; row < numRows; row++)
     {
         resultMatrix[row][numCols-1] = 1;
     }
+
     print_double_matrix(resultMatrix);
     
-    for (col = numCols-2; col >= stop; col--)
+    for (col = numCols-2; col >= 0; col--)
     {
-        for (row = 1; row < numRows; row++)
+        for (row = 0; row < numRows; row++)
         {
-            for (p = 1; p < numRows; p++)
+            for (p = 0; p < numRows; p++)
             {
-                resultMatrix[row][col] += transition[row][p]*emission[p-1][observations[col]]*resultMatrix[p][col+1];
+                resultMatrix[row][col] += transition[row][p]*emission[p][observations[col]]*resultMatrix[p][col+1];
             }
             
         }
     }
+
+    if (stop == 0)
+    {
+        // probabilities of returning to inital state. the sum should equal forward
+        for (row = 0; row < numRows; row++)
+        {
+            resultMatrix[row][0] = pi[row]*resultMatrix[row][1]*emission[row][observations[0]];
+        } 
+    }
+    
 
     print_double_matrix(resultMatrix);
     
@@ -122,24 +135,24 @@ void backward(vector<vector<double> > transition, vector<vector<double> > emissi
 */
 int main()
 {
-    vector<vector<double> > transition { { 0, 0.7, 0.3 },
-                                    { 0, 0.6, 0.4 },
-                                    {0, 0.3, 0.7}};
+    vector<double> pi {0.8, 0.2};
+    vector<vector<double> > transition {{ 0.6, 0.4 },
+                                    {0.3, 0.7}};
 
-    vector<vector<double> > emission { { 0.2, 0.8 },
-                                    { 0.6, 0.4 }};
+    vector<vector<double> > emission { { 0.3, 0.4, 0.3 },
+                                    { 0.4, 0.3, 0.3 }};
 
                                 
-    vector<int> observations {0,1, 1,1,0,0};
+    vector<int> observations {0,1,2,2};
 
     print_double_matrix(transition);
     print_double_matrix(emission);
 
-    vector<vector<double> > result = forward(transition, emission, observations, 6);
+    vector<vector<double> > result = forward(transition, emission, observations, pi, 4);
     cout << "forward\n";
     print_double_matrix(result);
     cout << "backward\n";
-    backward(transition, emission, observations, 0);
+    backward(transition, emission, observations, pi, 1);
 
 	return 0;
 }
