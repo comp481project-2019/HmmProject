@@ -145,7 +145,6 @@ vector<vector<float> > backward(vector<vector<float> > &transition, vector<vecto
         resultMatrix[row][numCols-1] = 0;
     }
 
-    print_float_matrix(resultMatrix);
     
     for (col = numCols-2; col >= 0; col--)
     {

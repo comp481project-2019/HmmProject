@@ -12,8 +12,6 @@ using namespace std::chrono;
 
 
 
-
-
 /*
     Prints an input matrix to standard output one row at a time.
 
