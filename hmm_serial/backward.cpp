@@ -204,7 +204,7 @@ int main()
 
 
 
-    vector<vector<float> > result = backward(transition, emission, observations, pi, 1);
+    vector<vector<float> > result = backward(transition, emission, observations, pi, 0);
     cout << "backward\n";
     print_float_matrix(result);
 
