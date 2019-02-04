@@ -484,7 +484,10 @@ int main()
     {
         params = fData.hmmParamList[i];
         training = fData.trainingSets[i];
+
+        high_resolution_clock::time_point t1 = high_resolution_clock::now();
         HmmParams newParams = baum_welch(params, training, 10); // run baum-welch with 10 iterations
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
         if (print)
         {
@@ -497,6 +500,8 @@ int main()
             print_double_matrix(params.emission);
             cout << "Observation Training Data:\n";
             print_int_matrix(training);
+
+            cout << "Serial Exectution Time: " << duration_cast<microseconds>( t2 - t1 ).count() << " microseconds" << endl;
 
             cout << "\nHMM Trained Initial Probabilites:\n";
             print_double_vector(newParams.initial);
