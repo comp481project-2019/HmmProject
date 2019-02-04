@@ -15,6 +15,14 @@ struct HmmParams {
     vector<double> initial;
 };
 
+
+struct FileData {
+    int numHmmInputs;
+    vector<HmmParams> hmmParamList;
+    vector<vector<vector<int> > > trainingSets;
+};
+
+
 /*
     Prints an input matrix to standard output one row on each line with 
     values in a given row seperated by comma.
@@ -28,12 +36,42 @@ struct HmmParams {
 void print_double_matrix(vector<vector<double> > &matrix)
 {
     int rows = matrix.size();
-    int cols = matrix[0].size();
+    int cols;
 
     int i, j;
 
     for (i = 0; i < rows; i++)
     {
+        cols = matrix[i].size();
+        for (j = 0; j < cols; j++)
+        {
+            cout << matrix[i][j] << ", ";
+        }
+        cout << "\n";
+    }
+    cout << "\n";
+}
+
+/*
+    Prints an input matrix to standard output one row on each line with 
+    values in a given row seperated by comma.
+
+    Params:
+        vector<vector<int> > matrix: a matrix to be printed
+
+    Return: 
+        void: nothing to return because it is simply printing
+*/
+void print_int_matrix(vector<vector<int> > &matrix)
+{
+    int rows = matrix.size();
+    int cols;
+
+    int i, j;
+
+    for (i = 0; i < rows; i++)
+    {
+        cols = matrix[i].size();
         for (j = 0; j < cols; j++)
         {
             cout << matrix[i][j] << ", ";
@@ -71,6 +109,99 @@ void print_double_vector(vector<double> vec)
         cout << vec[i] << ", ";
     }
     cout << "\n\n";
+}
+
+/*  
+    Reads input data from a specially formatted hmm input file. The program user must input the name of the file to be parsed. 
+
+    How to read the input file:
+        1. first line is integer (N) representing the number of hmm models that exist in the file
+        2. following line 1 are N blocks, each representing a different hmm model to test
+            a. line 1 of a block is the number of states (S) in the model
+            b. line 2 of the block is the number of possible emissions (E) from the model
+            c. the next S lines contain S space-separated floating point numbers representing transition probabilities
+            d. the next S lines contain E space-separated floating point numbers representing emission probabilities
+            e. the following line contains the number of observation sequences (T) to be used for training the model
+            f. following this line there are O two line training data blocks
+                i. the first line of a training data block indicates the number of observations (O) in the observation sequence
+                ii. the second line contains O space seperated integers representing the different observations
+
+    return:
+        FileData: an object representing data contained within a file for numerous HMMs 
+
+*/
+FileData read_file_data()
+{
+    ifstream fin;
+    string inputFileName;
+    cout << "Enter name of input file:\n";
+    cin >> inputFileName;
+    fin.open(inputFileName);
+
+    
+
+    FileData fData;
+    int numStates, numEmissions, numObservationSets, i, j;
+    fin >> fData.numHmmInputs;
+
+    for (int hmmIndex = 0; hmmIndex < fData.numHmmInputs; hmmIndex++)
+    {
+
+        fin >>  numStates >> numEmissions;
+
+        vector<double> initial(numStates);
+        vector<vector<double> > transition(numStates, vector<double>(numStates));
+        vector<vector<double> > emission(numStates, vector<double>(numEmissions));
+        vector<vector<int> > training;
+        for (i = 0; i < numStates; i++)
+        {
+            fin >> initial[i];
+        }
+
+        for (i = 0; i < numStates; i++)
+        {
+            for (j = 0; j < numStates; j++)
+            {
+                fin >> transition[i][j];
+            }
+        }
+
+        for (i = 0; i < numStates; i++)
+        {
+            for (j = 0; j < numEmissions; j++)
+            {
+                fin >> emission[i][j];
+            }
+        }
+
+        int numObservations, obs;
+        fin >> numObservationSets;
+        vector<int> observations;
+        for (i = 0; i < numObservationSets; i++)
+        {
+            fin >> numObservations;
+            for (j = 0; j < numObservations; j++)
+            {
+                fin >> obs;
+                observations.push_back(obs);
+            }
+            training.push_back(observations);
+            observations.clear();
+        }
+
+        HmmParams params;
+        params.initial = initial;
+        params.transition = transition;
+        params.emission = emission;
+    
+        fData.hmmParamList.push_back(params);
+        fData.trainingSets.push_back(training);
+
+    }
+    
+    fin.close();
+
+    return fData;
 }
 
 
@@ -333,6 +464,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
 /*
     
+    Runs the baum welch algorithm and determines whether or not to print the results
 
     params:
         None
@@ -343,67 +475,40 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 int main()
 {
 
-    cout << "\nSerial HMM Implementation Incuding Forward, Backward, and Baum-Welch Algorithms:\n\n";
-    // create simple testing model for HMM including inital (pi), transition, and emission probabilities 
-    vector<double> pi {0.5, 0.5};
-    vector<vector<double> > transition {{ 0.5, 0.5 },
-                                    {0.3, 0.7}};
+    bool print = true; // print models to standard output?
 
-    vector<vector<double> > emission { { 0.3, 0.5, 0.2 },
-                                    { 0.2, 0.2, 0.6 }};
-
-    
-    // define a sequence of observations
-    vector<int> observations {0,1,1};
-
-    cout << "HMM Initial Probabilites:\n";
-    print_double_vector(pi);
-    cout << "HMM Transition Probabilites:\n";
-    print_double_matrix(transition);
-    cout << "HMM Emission Probabilites:\n";
-    print_double_matrix(emission);
-    cout << "Observation Sequence:\n";
-    print_int_vector(observations);
-
-    // calclate the forward probability matrix
-    vector<vector<double> > forwardResult = forward(transition, emission, pi, observations, observations.size());
-    cout << "\nForward Probabilities:\n";
-    print_double_matrix(forwardResult);
-
-    // calculate the backward probability matrix
-    vector<vector<double> > backwardResult = backward(transition, emission, pi, observations);
-    cout << "Backward Probailities:\n";
-    print_double_matrix(backwardResult);
-
-
-    // define a training set of observations
-    vector<vector<int> > training{{0,2,1,0,2,0,1,0,0,2,1,2,0,0,1,1,1,2,2,0,2,2,0,1},
-                        {2,0,2,1,2,1,0,0,0,1,2},
-                        {1,0,2,0,2}};
-
-    /* 
-        using the initial, transition, and emission probabilities from before, initialize an HMM
-        parameter structure
-    */
+    FileData fData = read_file_data();  // read in data from file
     HmmParams params;
-    params.transition = transition;
-    params.emission = emission;
-    params.initial = pi;
+    vector<vector<int> > training;
+    for (int i = 0; i < fData.numHmmInputs; i++)
+    {
+        params = fData.hmmParamList[i];
+        training = fData.trainingSets[i];
+        HmmParams newParams = baum_welch(params, training, 10); // run baum-welch with 10 iterations
 
-    // perform the baum_welch algorithm with the HMM params, the training data, and using 10 iterations 
-    HmmParams newParams = baum_welch(params, training, 10);
+        if (print)
+        {
+            cout << "\nHMM TRAINING MODEL " << i << "\n\n";
+            cout << "HMM Initial Probabilites:\n";
+            print_double_vector(params.initial);
+            cout << "HMM Transition Probabilites:\n";
+            print_double_matrix(params.transition);
+            cout << "HMM Emission Probabilites:\n";
+            print_double_matrix(params.emission);
+            cout << "Observation Training Data:\n";
+            print_int_matrix(training);
 
-    // update the HMM params with the new parameters from training
-    params = newParams;
+            cout << "\nHMM Trained Initial Probabilites:\n";
+            print_double_vector(newParams.initial);
+            cout << "HMM Trained Transition Probabilites:\n";
+            print_double_matrix(newParams.transition);
+            cout << "HMM Trained Emission Probabilites:\n";
+            print_double_matrix(newParams.emission);
+            cout << "\n\n";
 
-    cout << "Trained HMM Initial Probabilites:\n";
-    print_double_vector(params.initial);
-    cout << "Trained HMM Transition Probabilites:\n";
-    print_double_matrix(params.transition);
-    cout << "Trained HMM Emission Probabilites:\n";
-    print_double_matrix(params.emission);
+        }
 
-
+    }
 
 	return 0;
 }
