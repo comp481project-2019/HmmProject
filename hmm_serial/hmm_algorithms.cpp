@@ -16,8 +16,8 @@ struct HmmParams {
 };
 
 
-struct FileData {
-    int numHmmInputs;
+struct HmmData {
+    int numHmmInputs = 0;
     vector<HmmParams> hmmParamList;
     vector<vector<vector<int> > > trainingSets;
 };
@@ -111,6 +111,206 @@ void print_double_vector(vector<double> vec)
     cout << "\n\n";
 }
 
+/*
+    Builds a randomized probability matrix of given dimension. Each row of the matrix sums to 1
+
+    Params:
+        int numRows: number of rows in the matrix
+        int numCols: numberof cols in the matrix
+
+    Return: 
+        vector<vector<double> >: a probability matrix
+*/
+vector<vector<double> > generate_probability_matrix(int numRows, int numCols)
+{
+
+    vector<vector<double> > matrix;
+    vector<double> rowSum(numRows);
+    int i, j;
+    double random;
+    for (i = 0; i < numRows; i++)
+    {
+        vector<double> col;
+        for (j = 0; j < numCols; j++)
+        {
+            random = 1 + static_cast<float>(rand()) /(static_cast<float>(RAND_MAX/(10 - 1))); // ensures the random number is in the input range
+            col.push_back(random);
+        }
+        matrix.push_back(col);
+    }
+
+
+    // sum of values in each row
+    for (int row = 0; row < numRows; row++)
+    {
+        for (int col = 0; col < numCols; col++)
+        {
+            rowSum[row] += matrix[row][col];
+        }
+    }
+
+     // normalize each row so its values usm to 1
+    for (int row = 0; row < numRows; row++)
+    {
+        for (int col = 0; col < numCols; col++)
+        {
+            matrix[row][col] = matrix[row][col]/rowSum[row];
+        }
+    }
+
+    return matrix;
+
+}
+
+/*
+    Builds a probability matrix of given dimension such that all probabilites are the same,
+    and all rows sum to 1;
+
+    Params:
+        int numRows: number of rows in the matrix
+        int numCols: numberof cols in the matrix
+
+    Return: 
+        vector<vector<double> >: a probability matrix
+*/
+vector<vector<double> > generate_equal_probability_matrix(int numRows, int numCols)
+{
+
+    vector<vector<double> > matrix;
+    int i, j;
+    double probs = 1.0/numCols;
+    for (i = 0; i < numRows; i++)
+    {
+        vector<double> col;
+        for (j = 0; j < numCols; j++)
+        {
+            col.push_back(probs);
+        }
+        matrix.push_back(col);
+    }
+
+    return matrix;
+
+}
+
+
+/*
+    Builds a randomized probability vector such that its values sum to one
+
+    Params:
+        int numProbs: the number of probabilties which summed equals 1
+
+    Return: 
+        vector<double>: a probability vector
+*/
+vector<double> generate_probability_vector(int numProbs)
+{
+
+    vector<double> vector;
+    double rowSum;
+    int i;
+    double random;
+
+    for (i = 0; i < numProbs; i++)
+    {
+        random = 1 + static_cast<float>(rand()) /(static_cast<float>(RAND_MAX/(10 - 1))); // ensures the random number is in the input range
+        vector.push_back(random);
+    }
+
+    // sum all the values
+    for (int s = 0; s < numProbs; s++)
+    {
+        rowSum += vector[s];
+    }
+
+    // divide each value by the sum of values to normalize the data
+    for (int s = 0; s < numProbs; s++)
+    {
+        vector[s] = vector[s]/rowSum;
+    }
+
+    return vector;
+
+}
+
+
+/*
+    Builds a probability vector such that its values sum to one and all probabiities are equal
+
+    Params:
+        int numProbs: the number of probabilties which summed equals 1
+
+    Return: 
+        vector<double>: a probability vector
+*/
+vector<double> generate_equal_probability_vector(int numProbs)
+{
+
+    vector<double> vector;
+    int i;
+    double probs = 1.0/numProbs;
+
+    for (i = 0; i < numProbs; i++)
+    {
+        vector.push_back(probs);
+    }
+
+    return vector;
+
+}
+
+/*
+    Builds a randomized vector of observations, given a vector size and number of possible emissions
+
+    Params:
+        int numEmissions: number of possible emissions
+        int size: size of observation vector
+
+    Return: 
+        vector<int>: a vector of randomly generates values between 0 and numEmissions - 1 inclusive
+*/
+vector<int> generate_observation_vector(int numEmissions, int size)
+{
+
+    vector<int> vector;
+    int i;
+
+    for (i = 0; i < size; i++)
+    {
+        vector.push_back(rand() % (numEmissions));
+    }
+
+    return vector;
+}
+
+
+/*
+    Builds a randomized training set of observations for an hmm. 
+    
+    Note: randomized training data is only useful for testing runtimes of randomly generated models, 
+    not for obtaining useful models.
+
+    Params:
+        int numEmissions: The number of possible emissions in the model 
+        vector<int> sizes: a vector of integers representing the size of each random training set 
+
+    Return: 
+        vector<vector<int> >: a 2d vector where each row is a random observation sequence
+*/
+vector<vector<int> > generate_training_set(int numEmissions, vector<int> sizes)
+{
+
+    vector<vector<int> > trainingSet;
+    int i;
+
+    for (i = 0; i < sizes.size(); i++)
+    {
+        trainingSet.push_back(generate_observation_vector(numEmissions, sizes[i]));
+    }
+
+    return trainingSet;
+}
+
 /*  
     Reads input data from a specially formatted hmm input file. The program user must input the name of the file to be parsed. 
 
@@ -127,20 +327,20 @@ void print_double_vector(vector<double> vec)
                 ii. the second line contains O space seperated integers representing the different observations
 
     return:
-        FileData: an object representing data contained within a file for numerous HMMs 
+        HmmData: an object representing data contained within a file for numerous HMMs 
 
 */
-FileData read_file_data()
+HmmData read_file_data()
 {
     ifstream fin;
     string inputFileName;
-    cout << "Enter name of input file:\n";
-    cin >> inputFileName;
-    fin.open(inputFileName);
+    // cout << "Enter name of input file:\n";
+    // cin >> inputFileName;
+    fin.open("hmmInput.txt");
 
     
 
-    FileData fData;
+    HmmData fData;
     int numStates, numEmissions, numObservationSets, i, j;
     fin >> fData.numHmmInputs;
 
@@ -204,6 +404,16 @@ FileData read_file_data()
     return fData;
 }
 
+HmmParams generate_random_hmm(int numStates, int numEmissions)
+{
+    HmmParams params;
+    params.initial = generate_probability_vector(numStates);
+    params.transition = generate_probability_matrix(numStates, numStates);
+    params.emission = generate_probability_matrix(numStates, numEmissions);
+
+
+    return params;
+}
 
 /*
     The HMM forward algorithm uses dynamic programming to estimate the probablity of being in state i at time t,
@@ -271,11 +481,12 @@ vector<vector<double> > forward(vector<vector<double> > &transition, vector<vect
 */
 vector<vector<double> > backward(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations)
 {
+
     int numCols = observations.size();
     int numRows = transition.size();
     int row, col, p;
     double stateProb, result;
-
+    
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
     
     // initial probabilities
@@ -331,11 +542,11 @@ vector<vector<double> > backward(vector<vector<double> > &transition, vector<vec
 */
 HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iterations)
 {
-    
     int it;
     vector<vector<double> > transition(params.transition);
     vector<vector<double> > emission(params.emission);
     vector<double> initial(params.initial);
+    
     int numStates = initial.size();
     int numObservs;
 
@@ -345,15 +556,15 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
     for (it = 0; it < iterations; it++)
     {
-        // initialize vars
+
         vector<vector<double> > transitionUpdate(transition.size(), vector<double>(transition[0].size()));
         vector<vector<double> > emissionUpdate(emission.size(), vector<double>(emission[0].size()));
-        vector<double> initialUpdate(initial.size());
+        vector<double> initialUpdate(initial.size());        
 
         for (int o = 0; o < training.size(); o++){
             vector<int> observations = training[o];
             numObservs = observations.size();
-
+        
             // get alpha
             vector<vector<double> > alpha = forward(transition, emission, initial, observations, observations.size());
             // given alpha, calculate the probability of seeing the observation sequence
@@ -365,19 +576,21 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
             // get beta
             vector<vector<double> > beta = backward(transition, emission, initial, observations);
-
             // update initial
             for (int row = 0; row < numStates; row++)
             {
                 initialUpdate[row] += alpha[row][0]*beta[row][0]/za;
             }
 
+
             // update emission probs
             for (int col = 0; col < numObservs; col++)
             {
                 for (int row = 0; row < numStates; row++)
                 {
+                    
                     emissionUpdate[row][observations[col]] += alpha[row][col]*beta[row][col]/za; 
+                    
                 }
             
             }
@@ -396,10 +609,12 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
         }
 
+        
+
         // create denominators for normalization
         double initialSum = 0;
         vector<double> transitionSum(numStates);
-        vector<double> emissionSum(emission[0].size());
+        vector<double> emissionSum(emission.size());
         // sum of initals
         for (int s = 0; s < numStates; s++)
         {
@@ -413,10 +628,11 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
                 transitionSum[row] += transitionUpdate[row][col];
             }
         }
-        // sum of values in each emssion row
+
+        //sum of values in each emssion row
         for (int row = 0; row < numStates; row++)
         {
-            for (int col = 0; col < emissionSum.size(); col++)
+            for (int col = 0; col < emissionUpdate[0].size(); col++)
             {
                 emissionSum[row] += emissionUpdate[row][col];
             }
@@ -442,12 +658,11 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         // 3. normalize emission
         for (int row = 0; row < numStates; row++)
         {
-            for (int col = 0; col < emissionSum.size(); col++)
+            for (int col = 0; col < emissionUpdate[0].size(); col++)
             {
                 emission[row][col] = emissionUpdate[row][col]/emissionSum[row];
             }
-        }
-        
+        }        
 
     }
 
@@ -474,10 +689,27 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 */
 int main()
 {
-
+    srand (time(NULL)); // set seed for random generator 
     bool print = true; // print models to standard output?
+    int readFile;
+    HmmData fData;
 
-    FileData fData = read_file_data();  // read in data from file
+    
+    cout << "Input 1 to read from file. Otherwise, generate random parameters:\n";
+    cin >> readFile;
+
+    if (readFile == 1)
+    {
+        fData = read_file_data();  // read in data from file
+    }
+    else 
+    {
+        vector<int> sizes({10, 20, 15, 5}); // these are the sizes for random observation vectors
+        fData.hmmParamList.push_back(generate_random_hmm(10, 7)); //add a randomized hmm to the list
+        fData.trainingSets.push_back(generate_training_set(7, sizes)); // add a randomized training set to the list
+        fData.numHmmInputs++;   // indicate that a new hmm input has been added;
+    }
+
     HmmParams params;
     vector<vector<int> > training;
     for (int i = 0; i < fData.numHmmInputs; i++)
@@ -501,7 +733,7 @@ int main()
             cout << "Observation Training Data:\n";
             print_int_matrix(training);
 
-            cout << "Serial Exectution Time: " << duration_cast<microseconds>( t2 - t1 ).count() << " microseconds" << endl;
+            
 
             cout << "\nHMM Trained Initial Probabilites:\n";
             print_double_vector(newParams.initial);
@@ -512,6 +744,7 @@ int main()
             cout << "\n\n";
 
         }
+        cout << "Serial Exectution Time: " << duration_cast<microseconds>( t2 - t1 ).count() << " microseconds" << endl;
 
     }
 
