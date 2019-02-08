@@ -2,10 +2,12 @@
 #include <vector>           
 #include <stdlib.h>         
 #include <time.h>          
-#include <omp.h>           
-#include <fstream>          
+#include <chrono>           
+#include <fstream> 
+#include <omp.h>         
 
 using namespace std;
+using namespace std::chrono;
 
 
 struct HmmParams {
@@ -483,23 +485,22 @@ vector<vector<double> > backward(vector<vector<double> > &transition, vector<vec
 
     int numCols = observations.size();
     int numRows = transition.size();
-    int row, col, p;
     double stateProb, result;
     
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
     
     // initial probabilities
-    for (row = 0; row < numRows; row++)
+    for (int row = 0; row < numRows; row++)
     {
         resultMatrix[row][numCols-1] = 1;
     }
     
     // calculate backward probabilities 
-    for (col = numCols-2; col >= 0; col--)
+    for (int col = numCols-2; col >= 0; col--)
     {
-        for (row = 0; row < numRows; row++)
+        for (int row = 0; row < numRows; row++)
         {
-            for (p = 0; p < numRows; p++)
+            for (int p = 0; p < numRows; p++)
             {
                 resultMatrix[row][col] += transition[row][p]*emission[p][observations[col+1]]*resultMatrix[p][col+1];
             }
@@ -512,7 +513,7 @@ vector<vector<double> > backward(vector<vector<double> > &transition, vector<vec
         This value is calculated for testing purposes only and is not yet implemented in the code.
     */
     float sum = 0;
-    for (row = 0; row < numRows; row++)
+    for (int row = 0; row < numRows; row++)
     {
         sum += pi[row]*resultMatrix[row][0]*emission[row][observations[0]];
     } 
@@ -560,6 +561,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         vector<vector<double> > emissionUpdate(emission.size(), vector<double>(emission[0].size()));
         vector<double> initialUpdate(initial.size());        
 
+        #pragma omp parallel for num_threads(4) private(numObservs, za)
         for (int o = 0; o < training.size(); o++){
             vector<int> observations = training[o];
             numObservs = observations.size();
@@ -575,35 +577,39 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
             // get beta
             vector<vector<double> > beta = backward(transition, emission, initial, observations);
-            // update initial
-            for (int row = 0; row < numStates; row++)
+       
+            #pragma omp critical
             {
-                initialUpdate[row] += alpha[row][0]*beta[row][0]/za;
-            }
-
-
-            // update emission probs
-            for (int col = 0; col < numObservs; col++)
-            {
+                // update initial
                 for (int row = 0; row < numStates; row++)
                 {
-                    
-                    emissionUpdate[row][observations[col]] += alpha[row][col]*beta[row][col]/za; 
+                    initialUpdate[row] += alpha[row][0]*beta[row][0]/za;
                 }
-            
-            }
 
-            // update transition probs
-            for (int i = 1; i < numObservs; i++)
-            {
-                for (int s1 = 0; s1 < numStates; s1++)
+
+                // update emission probs
+                for (int col = 0; col < numObservs; col++)
                 {
-                    for (int s2 = 0; s2 < numStates; s2++)
+                    for (int row = 0; row < numStates; row++)
                     {
-                        transitionUpdate[s1][s2] += alpha[s1][i-1]*transition[s1][s2]*emission[s2][observations[i]]*beta[s2][i]/za;
+                        emissionUpdate[row][observations[col]] += alpha[row][col]*beta[row][col]/za; 
+                    }
+                
+                }
+
+                // update transition probs
+                for (int i = 1; i < numObservs; i++)
+                {
+                    for (int s1 = 0; s1 < numStates; s1++)
+                    {
+                        for (int s2 = 0; s2 < numStates; s2++)
+                        {
+                            transitionUpdate[s1][s2] += alpha[s1][i-1]*transition[s1][s2]*emission[s2][observations[i]]*beta[s2][i]/za;
+                        }
                     }
                 }
             }
+            
 
         }
 
@@ -637,7 +643,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         }
 
         // normalization step:
-
+       
         // 1. normailze initial
         for (int s = 0; s < numStates; s++)
         {
@@ -660,7 +666,8 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
             {
                 emission[row][col] = emissionUpdate[row][col]/emissionSum[row];
             }
-        }        
+        } 
+              
 
     }
 
@@ -699,7 +706,7 @@ int main()
 
     if (readFile == 1)
     {
-        print = true;
+        print= true;
         fData = read_file_data();  // read in data from file
     }
     else 
@@ -744,7 +751,7 @@ int main()
             cout << "\n\n";
 
         }
-        cout << "Serial Exectution Time: " << ( t2 - t1 ) << " seconds" << endl;
+        cout << "Serial Exectution Time: " << (t2 - t1) << " seconds" << endl;
 
     }
 
