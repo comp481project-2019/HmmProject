@@ -3,7 +3,8 @@
 #include <stdlib.h>         
 #include <time.h>          
 #include <omp.h>           
-#include <fstream>          
+#include <fstream> 
+#include <cmath>            
 
 using namespace std;
 
@@ -21,6 +22,82 @@ struct HmmData {
     vector<vector<vector<int> > > trainingSets;
 };
 
+/*
+    given a matrix, log each value to get them in log space
+*/ 
+void convert_matrix_to_log_space(vector<vector<double> > &probs)
+{   
+    int i, j;
+    int row = probs.size();
+    int col = probs[0].size();
+
+    for (i = 0; i < row; i++)
+    {
+        for (j = 0; j < col; j++)
+        {
+            probs[i][j] = log(probs[i][j]);
+        }
+    }
+}
+
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_to_log_space(vector<double> &probs)
+{   
+    int row = probs.size();
+    int i;
+    for (i = 0; i < row; i++)
+    {
+        
+        probs[i] = log(probs[i]);
+        
+    }
+}
+
+/*
+    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+*/
+void convert_matrix_from_log_space(vector<vector<double> > &probs)
+{   
+    int i, j;
+    int row = probs.size();
+    int col = probs[0].size();
+
+    for (i = 0; i < row; i++)
+    {
+        for (j = 0; j < col; j++)
+        {
+            probs[i][j] = exp(probs[i][j]);
+        }
+    }
+}
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_from_log_space(vector<double> &probs)
+{   
+    int row = probs.size();
+    int i;
+    for (i = 0; i < row; i++)
+    {
+        
+        probs[i] = exp(probs[i]);
+        
+    }
+}
+
+/*
+    performs the equivalent operation to log(x+y) but with log(x) and log(y)
+*/
+double logsum(double x, double y)
+{
+    if (x == 0 || y == 0)
+        return x+y;
+    return min(x,y) + log(1+exp(abs(y-x)));
+} 
 
 /*
     Prints an input matrix to standard output one row on each line with 
@@ -432,18 +509,18 @@ HmmParams generate_random_hmm(int numStates, int numEmissions)
         having already seen observations 0,1,...,t (one observation at each time t).
 
 */
-vector<vector<double> > forward(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<double> &pi, vector<int> &observations, int stop)
+vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<double> &pi, vector<int> &observations, int stop)
 {
     int numCols = stop;
     int numRows = transition.size();
     int row, col, p;
-    double stateProb, result;
+    double stateProb;
 
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
 
     // initialization
     for (row = 0; row < numRows; row++){
-        resultMatrix[row][0] = pi[row]*emission[row][observations[0]];
+        resultMatrix[row][0] = pi[row] + emission[row][observations[0]];
     }
 
     // calculate forward probabilities
@@ -454,8 +531,8 @@ vector<vector<double> > forward(vector<vector<double> > &transition, vector<vect
             stateProb = 0;
             for (p = 0; p < numRows; p++)
             {
-                stateProb = transition[p][row]*resultMatrix[p][col-1]*emission[row][observations[col]];
-                resultMatrix[row][col] += stateProb;
+                stateProb = transition[p][row] + resultMatrix[p][col-1] + emission[row][observations[col]];
+                resultMatrix[row][col] = logsum(stateProb, resultMatrix[row][col]);
             }
         }
     }
@@ -478,7 +555,7 @@ vector<vector<double> > forward(vector<vector<double> > &transition, vector<vect
         and then seeing observations t+1,t+2,...,T, where T is the total number of observations (one observation at each time t)
 
 */
-vector<vector<double> > backward(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations)
+vector<vector<double> > backward_log(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations)
 {
 
     int numCols = observations.size();
@@ -501,26 +578,13 @@ vector<vector<double> > backward(vector<vector<double> > &transition, vector<vec
         {
             for (p = 0; p < numRows; p++)
             {
-                resultMatrix[row][col] += transition[row][p]*emission[p][observations[col+1]]*resultMatrix[p][col+1];
+                stateProb = transition[row][p] + emission[p][observations[col+1]] + resultMatrix[p][col+1];
+                resultMatrix[row][col]  = logsum(stateProb, resultMatrix[row][col]);
             }
             
         }
     }
     
-    /* 
-        probabilities of returning to inital state. the sum should equal result of forward algorithm.
-        This value is calculated for testing purposes only and is not yet implemented in the code.
-    */
-    float sum = 0;
-    for (row = 0; row < numRows; row++)
-    {
-        sum += pi[row]*resultMatrix[row][0]*emission[row][observations[0]];
-    } 
-
-    //cout << sum << "\n";
-    
-    
-
     return resultMatrix;
     
 }
@@ -542,9 +606,14 @@ vector<vector<double> > backward(vector<vector<double> > &transition, vector<vec
 HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iterations)
 {
     int it;
-    vector<vector<double> > transition(params.transition);
-    vector<vector<double> > emission(params.emission);
-    vector<double> initial(params.initial);
+
+    convert_matrix_to_log_space(params.transition);
+    convert_matrix_to_log_space(params.emission);
+    convert_vector_to_log_space(params.initial);
+
+    vector<vector<double> > transition = params.transition;
+    vector<vector<double> > emission = params.emission;
+    vector<double> initial = params.initial;
     
     int numStates = initial.size();
     int numObservs;
@@ -565,20 +634,20 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
             numObservs = observations.size();
         
             // get alpha
-            vector<vector<double> > alpha = forward(transition, emission, initial, observations, observations.size());
+            vector<vector<double> > alpha = forward_log(transition, emission, initial, observations, observations.size());
             // given alpha, calculate the probability of seeing the observation sequence
             za = 0;
             for (int i = 0; i < alpha.size(); i++)
             {
-                za += alpha[i][alpha[0].size()-1];
+                za = logsum(za, alpha[i][alpha[0].size()-1]);
             }
 
             // get beta
-            vector<vector<double> > beta = backward(transition, emission, initial, observations);
+            vector<vector<double> > beta = backward_log(transition, emission, initial, observations);
             // update initial
             for (int row = 0; row < numStates; row++)
             {
-                initialUpdate[row] += alpha[row][0]*beta[row][0]/za;
+                initialUpdate[row] = logsum(alpha[row][0] + beta[row][0] - za, initialUpdate[row]);
             }
 
 
@@ -588,7 +657,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
                 for (int row = 0; row < numStates; row++)
                 {
                     
-                    emissionUpdate[row][observations[col]] += alpha[row][col]*beta[row][col]/za; 
+                    emissionUpdate[row][observations[col]] = logsum(alpha[row][col] + beta[row][col] - za, emissionUpdate[row][observations[col]]); 
                 }
             
             }
@@ -600,7 +669,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
                 {
                     for (int s2 = 0; s2 < numStates; s2++)
                     {
-                        transitionUpdate[s1][s2] += alpha[s1][i-1]*transition[s1][s2]*emission[s2][observations[i]]*beta[s2][i]/za;
+                        transitionUpdate[s1][s2] = logsum(alpha[s1][i-1] + transition[s1][s2] + emission[s2][observations[i]] + beta[s2][i] - za, transitionUpdate[s1][s2]);
                     }
                 }
             }
@@ -616,14 +685,14 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         // sum of initals
         for (int s = 0; s < numStates; s++)
         {
-            initialSum += initialUpdate[s];
+            initialSum = logsum(initialUpdate[s], initialSum);
         }
         // sum of values in each tranistion row
         for (int row = 0; row < numStates; row++)
         {
             for (int col = 0; col < numStates; col++)
             {
-                transitionSum[row] += transitionUpdate[row][col];
+                transitionSum[row] = logsum(transitionSum[row], transitionUpdate[row][col]);
             }
         }
 
@@ -632,7 +701,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         {
             for (int col = 0; col < emissionUpdate[0].size(); col++)
             {
-                emissionSum[row] += emissionUpdate[row][col];
+                emissionSum[row] = logsum(emissionSum[row], emissionUpdate[row][col]);
             }
         }
 
@@ -641,7 +710,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         // 1. normailze initial
         for (int s = 0; s < numStates; s++)
         {
-            initial[s] = initialUpdate[s]/initialSum;
+            initial[s] = initialUpdate[s] - initialSum;
         }
 
         // 2. normalize transition
@@ -649,7 +718,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         {
             for (int col = 0; col < numStates; col++)
             {
-                transition[row][col] = transitionUpdate[row][col]/transitionSum[row];
+                transition[row][col] = transitionUpdate[row][col] - transitionSum[row];
             }
         }
 
@@ -658,7 +727,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         {
             for (int col = 0; col < emissionUpdate[0].size(); col++)
             {
-                emission[row][col] = emissionUpdate[row][col]/emissionSum[row];
+                emission[row][col] = emissionUpdate[row][col] - emissionSum[row];
             }
         }        
 
@@ -666,6 +735,9 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
     HmmParams newParams;
 
+    convert_vector_from_log_space(initial);
+    convert_matrix_from_log_space(transition);
+    convert_matrix_from_log_space(emission);
     newParams.initial = initial;
     newParams.transition = transition;
     newParams.emission = emission;
@@ -688,7 +760,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 int main()
 {
     srand (time(NULL)); // set seed for random generator 
-    bool print = false; // print models to standard output?
+    bool print = true; // print models to standard output?
     int readFile;
     double t1, t2;
     HmmData fData;
@@ -704,9 +776,9 @@ int main()
     }
     else 
     {
-        vector<int> sizes({10, 10, 10, 10}); // these are the sizes for random observation vectors
-        fData.hmmParamList.push_back(generate_random_hmm(5, 5)); //add a randomized hmm to the list
-        fData.trainingSets.push_back(generate_training_set(5, sizes)); // add a randomized training set to the list
+        vector<int> sizes({2000, 3000, 800, 1000}); // these are the sizes for random observation vectors
+        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
+        fData.trainingSets.push_back(generate_training_set(30, sizes)); // add a randomized training set to the list
         fData.numHmmInputs++;   // indicate that a new hmm input has been added;
     }
 
