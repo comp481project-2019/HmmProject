@@ -607,19 +607,19 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 {
     int it;
 
-    convert_matrix_to_log_space(params.transition);
-    convert_matrix_to_log_space(params.emission);
-    convert_vector_to_log_space(params.initial);
-
     vector<vector<double> > transition = params.transition;
     vector<vector<double> > emission = params.emission;
     vector<double> initial = params.initial;
+
+    convert_matrix_to_log_space(transition);
+    convert_matrix_to_log_space(emission);
+    convert_vector_to_log_space(initial);
     
     int numStates = initial.size();
     int numObservs;
 
     // this represent the probability of an observation sequence to be trained on.
-    float za;
+    double za;
 
 
     for (it = 0; it < iterations; it++)
@@ -627,28 +627,41 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
         vector<vector<double> > transitionUpdate(transition.size(), vector<double>(transition[0].size()));
         vector<vector<double> > emissionUpdate(emission.size(), vector<double>(emission[0].size()));
-        vector<double> initialUpdate(initial.size());        
+        vector<double> initialUpdate(initial.size());   
+        int num_threads = omp_get_max_threads() < training.size()? omp_get_max_threads() : training.size();
 
-        #pragma omp parallel for num_threads(4) private(za, numObservs)
+        #pragma omp parallel for num_threads(num_threads) private(za, numObservs)
         for (int o = 0; o < training.size(); o++){
             vector<int> observations = training[o];
+            vector<vector<double> > alpha;
+            vector<vector<double> > beta;
             numObservs = observations.size();
-        
-            // get alpha
-            vector<vector<double> > alpha = forward_log(transition, emission, initial, observations, observations.size());
-            // given alpha, calculate the probability of seeing the observation sequence
-            za = 0;
-            for (int i = 0; i < alpha.size(); i++)
+
+            #pragma omp parallel sections num_threads(2)
             {
-                za = logsum(za, alpha[i][alpha[0].size()-1]);
+  
+                #pragma omp section
+                    alpha = forward_log(transition, emission, initial, observations, observations.size());
+
+                #pragma omp section
+                    beta = backward_log(transition, emission, initial, observations);
+
             }
 
-            // get beta
-            vector<vector<double> > beta = backward_log(transition, emission, initial, observations);
-            // update initial
-
-            #pragma omp critical
+            
+             
+            #pragma omp critical 
             {
+                // given alpha, calculate the probability of seeing the observation sequence
+                za = 0;
+                for (int i = 0; i < alpha.size(); i++)
+                {
+                    za = logsum(za, alpha[i][alpha[0].size()-1]);
+                }
+
+
+                    
+                // update initial
                 for (int row = 0; row < numStates; row++)
                 {
                     initialUpdate[row] = logsum(alpha[row][0] + beta[row][0] - za, initialUpdate[row]);
@@ -678,9 +691,8 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
                     }
                 }
             }
-
+            
         }
-
         
 
         // create denominators for normalization
@@ -764,8 +776,9 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 */
 int main()
 {
+    
     srand (time(NULL)); // set seed for random generator 
-    bool print = true; // print models to standard output?
+    bool print = false; // print models to standard output?
     int readFile;
     double t1, t2;
     HmmData fData;
@@ -781,9 +794,19 @@ int main()
     }
     else 
     {
-        vector<int> sizes({2000, 3000, 800, 1000}); // these are the sizes for random observation vectors
+        vector<int> sizes1({6000}); // these are the sizes for random observation vectors
         fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
-        fData.trainingSets.push_back(generate_training_set(30, sizes)); // add a randomized training set to the list
+        fData.trainingSets.push_back(generate_training_set(30, sizes1)); // add a randomized training set to the list
+        fData.numHmmInputs++;   // indicate that a new hmm input has been added;
+
+        vector<int> sizes2({2000, 4000}); // these are the sizes for random observation vectors
+        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
+        fData.trainingSets.push_back(generate_training_set(30, sizes2)); // add a randomized training set to the list
+        fData.numHmmInputs++;   // indicate that a new hmm input has been added;
+
+        vector<int> sizes3({1000, 500, 200, }); // these are the sizes for random observation vectors
+        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
+        fData.trainingSets.push_back(generate_training_set(30, sizes3)); // add a randomized training set to the list
         fData.numHmmInputs++;   // indicate that a new hmm input has been added;
     }
 
