@@ -3,7 +3,7 @@
 #include <stdlib.h>         
 #include <iostream>      
 #include <vector>           
-#include <stdlib.h>         
+#include <cstdlib>        
 #include <time.h>          
 #include <omp.h>           
 #include <fstream> 
@@ -213,7 +213,7 @@ vector<vector<double> > generate_probability_matrix(int numRows, int numCols)
         vector<double> col;
         for (j = 0; j < numCols; j++)
         {
-            random = 1 + static_cast<float>(rand()) /(static_cast<float>(RAND_MAX/(10 - 1))); // ensures the random number is in the input range
+            random = 1 + (float)rand()/(RAND_MAX/(10 - 1)); // ensures the random number is in the input range
             col.push_back(random);
         }
         matrix.push_back(col);

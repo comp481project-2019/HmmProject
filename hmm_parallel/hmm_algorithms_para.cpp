@@ -33,23 +33,22 @@ vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<
 {
     int numCols = stop;
     int numRows = transition.size();
-    int row, col, p;
     double stateProb;
 
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
 
     // initialization
-    for (row = 0; row < numRows; row++){
+    for (int row = 0; row < numRows; row++){
         resultMatrix[row][0] = pi[row] + emission[row][observations[0]];
     }
 
     // calculate forward probabilities
-    for (col = 1; col < numCols; col++)
+    for (int col = 1; col < numCols; col++)
     {
-        for (row = 0; row < numRows; row++)
+        #pragma omp parallel for num_threads(omp_get_max_threads()) private(stateProb) 
+        for (int row = 0; row < numRows; row++)
         {
-            stateProb = 0;
-            for (p = 0; p < numRows; p++)
+            for (int p = 0; p < numRows; p++)
             {
                 stateProb = transition[p][row] + resultMatrix[p][col-1] + emission[row][observations[col]];
                 resultMatrix[row][col] = logsum(stateProb, resultMatrix[row][col]);
@@ -80,23 +79,23 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
 
     int numCols = observations.size();
     int numRows = transition.size();
-    int row, col, p;
     double stateProb, result;
     
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
     
     // initial probabilities
-    for (row = 0; row < numRows; row++)
+    for (int row = 0; row < numRows; row++)
     {
         resultMatrix[row][numCols-1] = 1;
     }
     
     // calculate backward probabilities 
-    for (col = numCols-2; col >= 0; col--)
+    for (int col = numCols-2; col >= 0; col--)
     {
-        for (row = 0; row < numRows; row++)
+        #pragma omp parallel for num_threads(omp_get_max_threads()) private(stateProb) 
+        for (int row = 0; row < numRows; row++)
         {
-            for (p = 0; p < numRows; p++)
+            for (int p = 0; p < numRows; p++)
             {
                 stateProb = transition[row][p] + emission[p][observations[col+1]] + resultMatrix[p][col+1];
                 resultMatrix[row][col]  = logsum(stateProb, resultMatrix[row][col]);
@@ -149,7 +148,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         vector<vector<double> > emissionUpdate(emission.size(), vector<double>(emission[0].size()));
         vector<double> initialUpdate(initial.size());   
         int num_threads = omp_get_max_threads() < training.size()? omp_get_max_threads() : training.size();
-
+        
         #pragma omp parallel for num_threads(num_threads) private(za, numObservs)
         for (int o = 0; o < training.size(); o++){
             vector<int> observations = training[o];
@@ -187,6 +186,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
                 #pragma omp parallel sections num_threads(2)
                 {
+                    
                     #pragma omp section
                     {
                         // update emission probs
@@ -234,7 +234,6 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         {
             initialSum = logsum(initialUpdate[s], initialSum);
         }
-    
     
     
         // sum of values in each tranistion row

@@ -776,20 +776,11 @@ int main()
     }
     else 
     {
-        vector<int> sizes1({6000}); // these are the sizes for random observation vectors
-        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
-        fData.trainingSets.push_back(generate_training_set(30, sizes1)); // add a randomized training set to the list
+        vector<int> sizes1({10}); // these are the sizes for random observation vectors
+        fData.hmmParamList.push_back(generate_random_hmm(1024, 3)); //add a randomized hmm to the list
+        fData.trainingSets.push_back(generate_training_set(3, sizes1)); // add a randomized training set to the list
         fData.numHmmInputs++;   // indicate that a new hmm input has been added;
 
-        vector<int> sizes2({2000, 4000}); // these are the sizes for random observation vectors
-        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
-        fData.trainingSets.push_back(generate_training_set(30, sizes2)); // add a randomized training set to the list
-        fData.numHmmInputs++;   // indicate that a new hmm input has been added;
-
-        vector<int> sizes3({1000, 500, 200, 1500}); // these are the sizes for random observation vectors
-        fData.hmmParamList.push_back(generate_random_hmm(20, 30)); //add a randomized hmm to the list
-        fData.trainingSets.push_back(generate_training_set(30, sizes3)); // add a randomized training set to the list
-        fData.numHmmInputs++;   // indicate that a new hmm input has been added;
     }
 
     HmmParams params;
