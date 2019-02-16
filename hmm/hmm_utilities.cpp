@@ -26,72 +26,7 @@ struct HmmData {
     vector<vector<vector<int> > > trainingSets;
 };
 
-/*
-    given a matrix, log each value to get them in log space
-*/ 
-void convert_matrix_to_log_space(vector<vector<double> > &probs)
-{   
-    int i, j;
-    int row = probs.size();
-    int col = probs[0].size();
 
-    for (i = 0; i < row; i++)
-    {
-        for (j = 0; j < col; j++)
-        {
-            probs[i][j] = log(probs[i][j]);
-        }
-    }
-}
-
-
-/*
-    given a vector, log each value to get them in log space
-*/ 
-void convert_vector_to_log_space(vector<double> &probs)
-{   
-    int row = probs.size();
-    int i;
-    for (i = 0; i < row; i++)
-    {
-        
-        probs[i] = log(probs[i]);
-        
-    }
-}
-
-/*
-    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
-*/
-void convert_matrix_from_log_space(vector<vector<double> > &probs)
-{   
-    int i, j;
-    int row = probs.size();
-    int col = probs[0].size();
-
-    for (i = 0; i < row; i++)
-    {
-        for (j = 0; j < col; j++)
-        {
-            probs[i][j] = exp(probs[i][j]);
-        }
-    }
-}
-
-/*
-    given a vector, log each value to get them in log space
-*/ 
-void convert_vector_from_log_space(vector<double> &probs)
-{   
-    int row = probs.size();
-    int i;
-    for (i = 0; i < row; i++)
-    {
-        
-        probs[i] = exp(probs[i]);
-        
-    }
-}
 
 /*
     performs the equivalent operation to log(x+y) but with log(x) and log(y)

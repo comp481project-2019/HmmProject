@@ -7,6 +7,27 @@
 
 using namespace std;
 
+/*
+    given a matrix, log each value to get them in log space
+*/ 
+void convert_matrix_to_log_space_para(vector<vector<double> > &probs);
+
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_to_log_space_para(vector<double> &probs);
+
+
+/*
+    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+*/
+void convert_matrix_from_log_space_para(vector<vector<double> > &probs);
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_from_log_space_para(vector<double> &probs);
 
 /*
     The HMM forward algorithm uses dynamic programming to estimate the probablity of being in state i at time t,

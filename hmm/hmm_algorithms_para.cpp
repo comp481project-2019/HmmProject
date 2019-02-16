@@ -8,8 +8,80 @@
 #include "hmm_utilities.h" 
 #include "hmm_algorithms_para.h"
 
-
 using namespace std;
+
+int NUM_THREADS = 32;
+
+
+/*
+    given a matrix, log each value to get them in log space
+*/ 
+void convert_matrix_to_log_space_para(vector<vector<double> > &probs)
+{   
+    int row = probs.size();
+    int col = probs[0].size();
+
+    #pragma omp parallel for num_threads(NUM_THREADS) collapse(2)
+    for (int i = 0; i < row; i++)
+    {
+        for (int j = 0; j < col; j++)
+        {
+            probs[i][j] = log(probs[i][j]);
+        }
+    }
+}
+
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_to_log_space_para(vector<double> &probs)
+{   
+    int row = probs.size();
+    int i;
+    #pragma omp parallel for num_threads(NUM_THREADS) 
+    for (int i = 0; i < row; i++)
+    {
+        
+        probs[i] = log(probs[i]);
+        
+    }
+}
+
+
+/*
+    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+*/
+void convert_matrix_from_log_space_para(vector<vector<double> > &probs)
+{   
+    int row = probs.size();
+    int col = probs[0].size();
+
+    #pragma omp parallel for num_threads(NUM_THREADS) collapse(2)
+    for (int i = 0; i < row; i++)
+    {
+        for (int j = 0; j < col; j++)
+        {
+            probs[i][j] = exp(probs[i][j]);
+        }
+    }
+}
+
+/*
+    given a vector, log each value to get them in log space
+*/ 
+void convert_vector_from_log_space_para(vector<double> &probs)
+{   
+    int row = probs.size();
+
+    #pragma omp parallel for num_threads(NUM_THREADS)
+    for (int i = 0; i < row; i++)
+    {
+        
+        probs[i] = exp(probs[i]);
+        
+    }
+}
 
 /*
     The HMM forward algorithm uses dynamic programming to estimate the probablity of being in state i at time t,
@@ -38,14 +110,15 @@ vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
 
     // initialization
+    #pragma omp parallel for num_threads(NUM_THREADS)
     for (int row = 0; row < numRows; row++){
         resultMatrix[row][0] = pi[row] + emission[row][observations[0]];
     }
 
     // calculate forward probabilities
     for (int col = 1; col < numCols; col++)
-    {
-        #pragma omp parallel for num_threads(omp_get_max_threads()) private(stateProb) 
+    { 
+        #pragma omp parallel for num_threads(NUM_THREADS) private(stateProb)
         for (int row = 0; row < numRows; row++)
         {
             for (int p = 0; p < numRows; p++)
@@ -84,6 +157,7 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
     vector<vector<double> > resultMatrix(numRows, vector<double>(numCols)); // Defaults to zero initial value
     
     // initial probabilities
+    #pragma omp parallel for num_threads(NUM_THREADS)
     for (int row = 0; row < numRows; row++)
     {
         resultMatrix[row][numCols-1] = 1;
@@ -92,7 +166,7 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
     // calculate backward probabilities 
     for (int col = numCols-2; col >= 0; col--)
     {
-        #pragma omp parallel for num_threads(omp_get_max_threads()) private(stateProb) 
+        #pragma omp parallel for num_threads(NUM_THREADS) private(stateProb)
         for (int row = 0; row < numRows; row++)
         {
             for (int p = 0; p < numRows; p++)
@@ -130,9 +204,9 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
     vector<vector<double> > emission = params.emission;
     vector<double> initial = params.initial;
 
-    convert_matrix_to_log_space(transition);
-    convert_matrix_to_log_space(emission);
-    convert_vector_to_log_space(initial);
+    convert_matrix_to_log_space_para(transition);
+    convert_matrix_to_log_space_para(emission);
+    convert_vector_to_log_space_para(initial);
     
     int numStates = initial.size();
     int numObservs;
@@ -147,25 +221,18 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         vector<vector<double> > transitionUpdate(transition.size(), vector<double>(transition[0].size()));
         vector<vector<double> > emissionUpdate(emission.size(), vector<double>(emission[0].size()));
         vector<double> initialUpdate(initial.size());   
-        int num_threads = omp_get_max_threads() < training.size()? omp_get_max_threads() : training.size();
         
-        #pragma omp parallel for num_threads(num_threads) private(za, numObservs)
         for (int o = 0; o < training.size(); o++){
             vector<int> observations = training[o];
             vector<vector<double> > alpha;
             vector<vector<double> > beta;
             numObservs = observations.size();
 
-            #pragma omp parallel sections num_threads(2)
-            {
-  
-                #pragma omp section
-                    alpha = forward_log(transition, emission, initial, observations, observations.size());
+            alpha = forward_log(transition, emission, initial, observations, observations.size());
 
-                #pragma omp section
-                    beta = backward_log(transition, emission, initial, observations);
-
-            }
+            beta = backward_log(transition, emission, initial, observations);
+            
+            
 
             // given alpha, calculate the probability of seeing the observation sequence
             za = 0;
@@ -173,50 +240,39 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
             {
                 za = logsum(za, alpha[i][alpha[0].size()-1]);
             }
-            
-             
-            #pragma omp critical 
+
+
+            // update initial
+            #pragma omp parallel for num_threads(NUM_THREADS)
+            for (int row = 0; row < numStates; row++)
             {
-                    
-                // update initial
+                initialUpdate[row] = logsum(alpha[row][0] + beta[row][0] - za, initialUpdate[row]);
+            }
+        
+    
+            
+            // update emission probs
+            for (int col = 0; col < numObservs; col++)
+            {
+                #pragma omp parallel for num_threads(NUM_THREADS)
                 for (int row = 0; row < numStates; row++)
                 {
-                    initialUpdate[row] = logsum(alpha[row][0] + beta[row][0] - za, initialUpdate[row]);
-                }
-
-                #pragma omp parallel sections num_threads(2)
-                {
                     
-                    #pragma omp section
+                    emissionUpdate[row][observations[col]] = logsum(alpha[row][col] + beta[row][col] - za, emissionUpdate[row][observations[col]]); 
+                }
+            }
+        
+    
+            // update transition probs
+            for (int i = 1; i < numObservs; i++)
+            {
+                #pragma omp parallel for num_threads(NUM_THREADS)
+                for (int s1 = 0; s1 < numStates; s1++)
+                {
+                    for (int s2 = 0; s2 < numStates; s2++)
                     {
-                        // update emission probs
-                        for (int col = 0; col < numObservs; col++)
-                        {
-                            for (int row = 0; row < numStates; row++)
-                            {
-                                
-                                emissionUpdate[row][observations[col]] = logsum(alpha[row][col] + beta[row][col] - za, emissionUpdate[row][observations[col]]); 
-                            }
-                        
-                        }
+                        transitionUpdate[s1][s2] = logsum(alpha[s1][i-1] + transition[s1][s2] + emission[s2][observations[i]] + beta[s2][i] - za, transitionUpdate[s1][s2]);
                     }
-                
-
-                    #pragma omp section
-                    {
-                        // update transition probs
-                        for (int i = 1; i < numObservs; i++)
-                        {
-                            for (int s1 = 0; s1 < numStates; s1++)
-                            {
-                                for (int s2 = 0; s2 < numStates; s2++)
-                                {
-                                    transitionUpdate[s1][s2] = logsum(alpha[s1][i-1] + transition[s1][s2] + emission[s2][observations[i]] + beta[s2][i] - za, transitionUpdate[s1][s2]);
-                                }
-                            }
-                        }
-                    }
-
                 }
             }
             
@@ -230,6 +286,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
        
         // sum of initals
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int s = 0; s < numStates; s++)
         {
             initialSum = logsum(initialUpdate[s], initialSum);
@@ -237,6 +294,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
     
     
         // sum of values in each tranistion row
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int row = 0; row < numStates; row++)
         {
             for (int col = 0; col < numStates; col++)
@@ -248,6 +306,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
     
         //sum of values in each emssion row
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int row = 0; row < numStates; row++)
         {
             for (int col = 0; col < emissionUpdate[0].size(); col++)
@@ -261,12 +320,14 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         // normalization step:
 
         // 1. normailze initial
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int s = 0; s < numStates; s++)
         {
             initial[s] = initialUpdate[s] - initialSum;
         }
 
         // 2. normalize transition
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int row = 0; row < numStates; row++)
         {
             for (int col = 0; col < numStates; col++)
@@ -276,6 +337,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         }
 
         // 3. normalize emission
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int row = 0; row < numStates; row++)
         {
             for (int col = 0; col < emissionUpdate[0].size(); col++)
@@ -288,9 +350,9 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
 
     HmmParams newParams;
 
-    convert_vector_from_log_space(initial);
-    convert_matrix_from_log_space(transition);
-    convert_matrix_from_log_space(emission);
+    convert_vector_from_log_space_para(initial);
+    convert_matrix_from_log_space_para(transition);
+    convert_matrix_from_log_space_para(emission);
     newParams.initial = initial;
     newParams.transition = transition;
     newParams.emission = emission;

@@ -9,11 +9,6 @@ using namespace std;
 
 
 /*
-    given a matrix, log each value to get them in log space
-*/ 
-void convert_matrix_to_log_space(vector<vector<double> > &probs);
-
-/*
     Prints an input matrix to standard output one row on each line with 
     values in a given row seperated by comma.
 
@@ -25,27 +20,6 @@ void convert_matrix_to_log_space(vector<vector<double> > &probs);
 */
 void print_double_matrix(vector<vector<double> > &matrix);
 
-
-/*
-    given a matrix, log each value to get them in log space
-*/ 
-void convert_matrix_to_log_space(vector<vector<double> > &probs);
-
-
-/*
-    given a vector, log each value to get them in log space
-*/ 
-void convert_vector_to_log_space(vector<double> &probs);
-
-/*
-    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
-*/
-void convert_matrix_from_log_space(vector<vector<double> > &probs);
-
-/*
-    given a vector, log each value to get them in log space
-*/ 
-void convert_vector_from_log_space(vector<double> &probs);
 
 /*
     performs the equivalent operation to log(x+y) but with log(x) and log(y)
