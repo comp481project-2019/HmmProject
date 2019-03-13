@@ -9,25 +9,33 @@ using namespace std;
 
 /*
     given a matrix, log each value to get them in log space
+    params:
+        int num_threads: number of threads with which to run in parallel
 */ 
-void convert_matrix_to_log_space_para(vector<vector<double> > &probs);
+void convert_matrix_to_log_space_para(vector<vector<double> > &probs, int num_threads);
 
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        int num_threads: number of threads with which to run in parallel
 */ 
-void convert_vector_to_log_space_para(vector<double> &probs);
+void convert_vector_to_log_space_para(vector<double> &probs, int num_threads);
 
 
 /*
-    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+    given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual 
+    params:
+        int num_threads: number of threads with which to run in parallel
 */
-void convert_matrix_from_log_space_para(vector<vector<double> > &probs);
+void convert_matrix_from_log_space_para(vector<vector<double> > &probs, int num_threads);
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        int num_threads: number of threads with which to run in parallel
 */ 
-void convert_vector_from_log_space_para(vector<double> &probs);
+void convert_vector_from_log_space_para(vector<double> &probs, int num_threads);
 
 /*
     The HMM forward algorithm uses dynamic programming to estimate the probablity of being in state i at time t,
@@ -42,12 +50,13 @@ void convert_vector_from_log_space_para(vector<double> &probs);
         int stop: an integer indicating at what time to stop in the sequence of observations. Generally this will equal the
         number of observations, however, if only interested in the probability up to a point, this argument prevents the need to 
         bild the entire forward matrix.
+        int num_threads: number of threads to run in parallel
     return:
         vector<vector<double> >: a forward probability matrix that represent the probability of being in state i at time t
         having already seen observations 0,1,...,t (one observation at each time t).
 
 */
-vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<double> &pi, vector<int> &observations, int stop);
+vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<vector<double> > &emission,  vector<double> &pi, vector<int> &observations, int stop, int num_threads);
 
 /*
     The HMM backward algorithm uses dynamic programming to estimate the probablity of being in state i at time t, and
@@ -58,12 +67,13 @@ vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<
         vector<vector<double> > &emission: a matrix representing the probability of making an observation from a given state
         vector<double> &pi: a vector representing the probability of starting in a given state
         vector<int> &observations: a vector representing a sequence of observations
+        int num_threads: number of threads to run in parallel
     return:
         vector<vector<double> >: a backward probability matrix that represent the probability of being in state i at time t
         and then seeing observations t+1,t+2,...,T, where T is the total number of observations (one observation at each time t)
 
 */
-vector<vector<double> > backward_log(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations);
+vector<vector<double> > backward_log(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations, int num_threads);
 
 
 /*
@@ -74,12 +84,13 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
         HmmParams &params: starting parameters of an HMM to be trained
         vector<vector<int> > &training: a set of observations sequences with which to train the HMM
         int iterations: the number of iterations of training to go through
+        int num_threads: number of threads to run in parallel
 
     return:
         HmmParams: a new set of HMM parameters that represent an improved estimate given the training data
 
 */
-HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iterations);
+HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iterations, int num_threads);
 
 
 
