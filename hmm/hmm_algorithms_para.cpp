@@ -192,6 +192,45 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
     
 }
 
+int predict_next_observation(HmmParams &params, vector<int> &observations, int num_threads)
+{
+    vector<vector<double> > transition = params.transition;
+    vector<vector<double> > emission = params.emission;
+    vector<double> initial = params.initial;
+
+    int num_states = transition.size();
+    int num_emissions = emission[0].size();
+    int num_observs = observations.size();
+
+    vector<vector<double>> alpha = forward_log(transition, emission, initial, observations, num_observs, num_threads);
+
+    double max_prob = -DBL_MAX;
+    double current_prob;
+    int max_observation = 0;
+
+    // calculate forward probabilities
+    for (int i = 0; i < num_emissions; i++)
+    { 
+        current_prob = 0;
+        for (int j = 0; j < num_states; j++)
+        {
+            for (int p = 0; p < num_states; p++)
+            {
+                current_prob = logsum(current_prob, alpha[j][num_observs-1] + transition[j][p] + emission[p][i]);
+            }
+        }
+
+        if (current_prob > max_prob)
+        {
+            max_prob = current_prob;
+            max_observation = i;
+        }
+
+    }
+
+    return max_observation;
+}
+
 
 /*
     Using the forward-backward algorithm, predict HMM parameters that best estimate a training set of 
