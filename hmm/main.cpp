@@ -61,7 +61,7 @@ int main()
             num_observations = 1000;
         } else {
 
-            cout << "Enter the number of iterations over which to average timing:\n";
+            cout << "Enter the number of iterations for training the HMM:\n";
             cin >> NUM_ITERATIONS;
 
             int thread_counts;
@@ -240,7 +240,7 @@ int main()
             cout << "\tSerial Exectution Time: " << (serial_forward_duration) << " seconds" << endl;
             cout << "\tParallel Exectution Time: " << (para_forward_duration) << " seconds" << endl;
             cout << "\tSpeedup: " << (forward_speedup) << endl;
-            cout << "\tSpeedup: " << (forward_efficiency) << endl << endl;
+            cout << "\tEfficiency: " << (forward_efficiency) << endl << endl;
 
 
             
