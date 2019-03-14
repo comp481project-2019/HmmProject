@@ -29,7 +29,13 @@ struct HmmData {
 
 
 /*
-    performs the equivalent operation to log(x+y) but with log(x) and log(y)
+    performs a summation but in log space
+
+    params:
+        double x: one value to add
+        doublt y: the other value to add
+    return:
+        double: the log space sum of x and y
 */
 double logsum(double x, double y)
 {
@@ -349,8 +355,6 @@ HmmData read_file_data()
 {
     ifstream fin;
     string inputFileName;
-    // cout << "Enter name of input file:\n";
-    // cin >> inputFileName;
     fin.open("hmmInput.txt");
 
     

@@ -10,6 +10,7 @@ using namespace std;
 /*
     given a matrix, log each value to get them in log space
     params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_matrix_to_log_space_para(vector<vector<double> > &probs, int num_threads);
@@ -18,6 +19,7 @@ void convert_matrix_to_log_space_para(vector<vector<double> > &probs, int num_th
 /*
     given a vector, log each value to get them in log space
     params:
+        vector<double> &probs: a vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_vector_to_log_space_para(vector<double> &probs, int num_threads);
@@ -26,6 +28,7 @@ void convert_vector_to_log_space_para(vector<double> &probs, int num_threads);
 /*
     given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual 
     params:
+        vector<double> &probs: a 2d vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */
 void convert_matrix_from_log_space_para(vector<vector<double> > &probs, int num_threads);
@@ -33,6 +36,7 @@ void convert_matrix_from_log_space_para(vector<vector<double> > &probs, int num_
 /*
     given a vector, log each value to get them in log space
     params:
+        vector<double> &probs: a vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_vector_from_log_space_para(vector<double> &probs, int num_threads);
@@ -75,6 +79,20 @@ vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<
 */
 vector<vector<double> > backward_log(vector<vector<double> > &transition, vector<vector<double> > &emission, vector<double> &pi, vector<int> &observations, int num_threads);
 
+/*
+    Given an HMM and a set of observations, this function can be used to predict the next observation that is expected
+    based on the observation sequence
+
+    params: 
+        HmmParams &params: parameters of HMM
+        vector<int> &observations: observation sequence
+        int num_threads: number of threads being used for parallelization
+
+    return:
+        int: the predicted next observation
+
+*/
+int predict_next_observation(HmmParams &params, vector<int> &observations, int num_threads);
 
 /*
     Using the forward-backward algorithm, predict HMM parameters that best estimate a training set of 

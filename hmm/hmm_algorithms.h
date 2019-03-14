@@ -10,23 +10,31 @@ using namespace std;
 
 /*
     given a matrix, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
 */ 
 void convert_matrix_to_log_space(vector<vector<double> > &probs);
 
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a vector of probabilities
 */ 
 void convert_vector_to_log_space(vector<double> &probs);
 
 
 /*
     given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+    params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
 */
 void convert_matrix_from_log_space(vector<vector<double> > &probs);
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a vector of probabilities
 */ 
 void convert_vector_from_log_space(vector<double> &probs);
 /*

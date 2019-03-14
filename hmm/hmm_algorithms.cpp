@@ -15,6 +15,8 @@ using namespace std;
 
 /*
     given a matrix, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
 */ 
 void convert_matrix_to_log_space(vector<vector<double> > &probs)
 {   
@@ -34,6 +36,8 @@ void convert_matrix_to_log_space(vector<vector<double> > &probs)
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a vector of probabilities
 */ 
 void convert_vector_to_log_space(vector<double> &probs)
 {   
@@ -50,6 +54,8 @@ void convert_vector_to_log_space(vector<double> &probs)
 
 /*
     given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+    params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
 */
 void convert_matrix_from_log_space(vector<vector<double> > &probs)
 {   
@@ -68,6 +74,8 @@ void convert_matrix_from_log_space(vector<vector<double> > &probs)
 
 /*
     given a vector, log each value to get them in log space
+    params:
+        vector<vector<double> > &probs: a vector of probabilities
 */ 
 void convert_vector_from_log_space(vector<double> &probs)
 {   
@@ -238,8 +246,6 @@ HmmParams baum_welch_serial(HmmParams &params, vector<vector<int> > &training, i
             }
             
              
-           
-                    
             // update initial
             for (int row = 0; row < numStates; row++)
             {
@@ -247,8 +253,6 @@ HmmParams baum_welch_serial(HmmParams &params, vector<vector<int> > &training, i
             }
 
               
-                    
-                
             // update emission probs
             for (int col = 0; col < numObservs; col++)
             {
@@ -260,9 +264,6 @@ HmmParams baum_welch_serial(HmmParams &params, vector<vector<int> > &training, i
             
             }
                 
-            
-
-               
             // update transition probs
             for (int i = 1; i < numObservs; i++)
             {

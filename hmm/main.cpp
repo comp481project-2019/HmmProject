@@ -34,18 +34,21 @@ int main()
 
     ofstream outputfile;  
    
-    cout << "Input 1 to read from file. Otherwise, generate random parameters:\n";
+    cout << "Input 1 to read from file. Input another integer to generate random parameters:\n";
     cin >> readFile;
 
     if (readFile == 1)
     {
+        int num_threads;
         print = true;
         fData = read_file_data();  // read in data from file
+        cout << "Enter the number of threads to use:\n";
+        cin >> num_threads;
+
+        threads = vector<int>({num_threads});
     }
     else 
     {  
-        
-
         cout << "Input 1 to use default values:\n";
         cin >> default_vals;
 
@@ -114,9 +117,10 @@ int main()
             params = fData.hmmParamList[i];
             training = fData.trainingSets[i];
 
-            convert_matrix_to_log_space_para(params.transition, 4);
-            convert_matrix_to_log_space_para(params.emission, 4);
-            convert_vector_to_log_space_para(params.initial, 4);
+            // we are using the serial version of this because we are not concerned with performance time for this conversion
+            convert_matrix_to_log_space(params.transition);
+            convert_matrix_to_log_space(params.emission);
+            convert_vector_to_log_space(params.initial);
 
             t1 = omp_get_wtime();
             forward_serial_log(params.transition, params.emission, params.initial, training[0],  training[0].size()); // run baum-welch with 10 iterations
@@ -127,6 +131,7 @@ int main()
             serial_backward_duration += omp_get_wtime()-t1;
 
 
+            // This is where parallel timings are tested
             for (int t = 0; t < threads.size(); t++)
             {
                 t1 = omp_get_wtime();
@@ -139,29 +144,29 @@ int main()
                 backward_durations[t] += omp_get_wtime()-t1;
             }
 
-            
-            convert_matrix_from_log_space_para(params.transition, 4);
-            convert_matrix_from_log_space_para(params.emission, 4);
-            convert_vector_from_log_space_para(params.initial, 4);
+            // we are using the serial version of this because we are not concerned with performance time for this conversion
+            convert_matrix_from_log_space(params.transition);
+            convert_matrix_from_log_space(params.emission);
+            convert_vector_from_log_space(params.initial);
 
 
 
             t1 = omp_get_wtime();
-            HmmParams newParamsSerial = baum_welch_serial(params, training, 5); // run baum-welch with 10 iterations
+            HmmParams newParamsSerial = baum_welch_serial(params, training, 5); // run baum-welch with 5 iterations
             serial_baum_welch_duration += omp_get_wtime()-t1;
 
             HmmParams newParams;
 
+            // This is where parallel timings are tested
             for (int t = 0; t < threads.size(); t++)
             {
                 t1 = omp_get_wtime();
-                newParams = baum_welch(params, training, 5, threads[t]); // run baum-welch with 10 iterations
+                newParams = baum_welch(params, training, 5, threads[t]); // run parallel baum-welch with 5 iterations
                 baum_welch_durations[t] += omp_get_wtime()-t1;
             }
 
            
-
-            if (print)
+            if (print || readFile == 1)
             {
                 cout << "\nHMM TRAINING MODEL " << i << "\n\n";
                 cout << "HMM Initial Probabilites:\n";
@@ -192,10 +197,12 @@ int main()
             }
         }
 
+        // get the average serial runtimes
         serial_baum_welch_duration = serial_baum_welch_duration/NUM_ITERATIONS;
         serial_forward_duration = serial_forward_duration/NUM_ITERATIONS;
         serial_backward_duration = serial_backward_duration/NUM_ITERATIONS;
 
+        // if we are not reading from a file we can write timing to file since we are testing performance and not results 
         if (readFile != 1)
         {
             outputfile << 1 << "," << num_states << "," << num_emissions << "," << num_observations << ",";
@@ -211,7 +218,7 @@ int main()
             outputfile << 1 << "," << 1 << "\n";
         }
         
-
+        // get timing for parallelized implementation
         for (int t = 0; t < threads.size(); t++) 
         {
             double para_baum_welch_duration = baum_welch_durations[t]/NUM_ITERATIONS;

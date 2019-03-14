@@ -5,8 +5,10 @@
 #include <omp.h>           
 #include <fstream> 
 #include <cmath>  
+#include <float.h>
 #include "hmm_utilities.h" 
 #include "hmm_algorithms_para.h"
+ 
 
 using namespace std;
 
@@ -15,6 +17,7 @@ using namespace std;
 /*
     given a matrix, log each value to get them in log space
     params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_matrix_to_log_space_para(vector<vector<double> > &probs, int num_threads)
@@ -36,12 +39,12 @@ void convert_matrix_to_log_space_para(vector<vector<double> > &probs, int num_th
 /*
     given a vector, log each value to get them in log space
     params:
+        vector<double> &probs: a vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_vector_to_log_space_para(vector<double> &probs, int num_threads)
 {   
     int row = probs.size();
-    int i;
     #pragma omp parallel for num_threads(num_threads) 
     for (int i = 0; i < row; i++)
     {
@@ -54,7 +57,9 @@ void convert_vector_to_log_space_para(vector<double> &probs, int num_threads)
 
 /*
     given an array of loged values perform the operation exp(probs[i][j]) in order to get the actual value
+
     params:
+        vector<vector<double> > &probs: a 2d vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */
 void convert_matrix_from_log_space_para(vector<vector<double> > &probs, int num_threads)
@@ -76,12 +81,12 @@ void convert_matrix_from_log_space_para(vector<vector<double> > &probs, int num_
     given a vector, log each value to get them in log space
 
     params:
+        vector<double> &probs: a vector of probabilities
         int num_threads: number of threads with which to run in parallel
 */ 
 void convert_vector_from_log_space_para(vector<double> &probs, int num_threads)
 {   
     int row = probs.size();
-
     #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < row; i++)
     {
@@ -138,6 +143,7 @@ vector<vector<double> > forward_log(vector<vector<double> > &transition, vector<
         }
     }
 
+    // return the complete alpha matrix
     return resultMatrix;
     
 }
@@ -192,6 +198,19 @@ vector<vector<double> > backward_log(vector<vector<double> > &transition, vector
     
 }
 
+/*
+    Given an HMM and a set of observations, this function can be used to predict the next observation that is expected
+    based on the observation sequence
+
+    params: 
+        HmmParams &params: parameters of HMM in log space
+        vector<int> &observations: observation sequence
+        int num_threads: number of threads being used for parallelization
+
+    return:
+        int: the predicted next observation
+
+*/
 int predict_next_observation(HmmParams &params, vector<int> &observations, int num_threads)
 {
     vector<vector<double> > transition = params.transition;
@@ -202,15 +221,20 @@ int predict_next_observation(HmmParams &params, vector<int> &observations, int n
     int num_emissions = emission[0].size();
     int num_observs = observations.size();
 
+    // calculate forward probabilities given observation sequence
     vector<vector<double>> alpha = forward_log(transition, emission, initial, observations, num_observs, num_threads);
 
     double max_prob = -DBL_MAX;
     double current_prob;
     int max_observation = 0;
 
-    // calculate forward probabilities
+    // for each possible emission
     for (int i = 0; i < num_emissions; i++)
     { 
+        /*
+            The probability of the emission is the sum of probabilities of going from each state to 
+            each other state and then emitting the given emission
+        */
         current_prob = 0;
         for (int j = 0; j < num_states; j++)
         {
@@ -220,6 +244,7 @@ int predict_next_observation(HmmParams &params, vector<int> &observations, int n
             }
         }
 
+        // is the current probability is higher than the previous highest probability replace it 
         if (current_prob > max_prob)
         {
             max_prob = current_prob;
@@ -261,7 +286,7 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
     int numStates = initial.size();
     int numObservs;
 
-    // this represent the probability of an observation sequence to be trained on.
+    // this represent the probability of an observation sequence
     double za;
 
 
@@ -334,14 +359,12 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
         vector<double> transitionSum(numStates);
         vector<double> emissionSum(emission.size());
 
-       
         // sum of initals
         #pragma omp parallel for num_threads(num_threads)
         for (int s = 0; s < numStates; s++)
         {
             initialSum = logsum(initialUpdate[s], initialSum);
         }
-    
     
         // sum of values in each tranistion row
         #pragma omp parallel for num_threads(num_threads)
@@ -353,8 +376,6 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
             }
         }
     
-
-    
         //sum of values in each emssion row
         #pragma omp parallel for num_threads(num_threads)
         for (int row = 0; row < numStates; row++)
@@ -365,8 +386,6 @@ HmmParams baum_welch(HmmParams &params, vector<vector<int> > &training, int iter
             }
         }
             
-        
-
         // normalization step:
 
         // 1. normailze initial
